@@ -8,110 +8,170 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <!-- 头部区域 -->
-        <header class="header">
-            <h1>🐱 费曼的猫</h1>
-            <p class="subtitle">最好的学习方式是教别人</p>
-        </header>
+    <div class="app-container">
+        <!-- 侧边栏 - 历史会话 -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3>📚 历史会话</h3>
+                <button class="new-session-btn" onclick="createNewSession()">+ 新建</button>
+            </div>
+            <div class="session-list" id="sessionList">
+                <!-- 会话列表会在这里动态添加 -->
+            </div>
+        </aside>
 
-        <!-- 猫咪状态区域 -->
-        <div class="cat-container">
-            <div class="cat-avatar" id="catAvatar">
-                <span class="cat-emoji" id="catEmoji">😺</span>
-            </div>
-            <div class="cat-info">
-                <p class="cat-name">小费曼</p>
-                <p class="cat-status" id="catStatus">等待学习新知识...</p>
-            </div>
-        </div>
+        <!-- 主内容区 -->
+        <div class="main-content">
+            <div class="container">
+                <!-- 头部区域 -->
+                <header class="header">
+                    <div class="header-left">
+                        <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+                    </div>
+                    <div class="header-center">
+                        <h1>🐱 费曼的猫</h1>
+                        <p class="subtitle">最好的学习方式是教别人</p>
+                    </div>
+                    <div class="header-right">
+                        <button class="settings-btn" onclick="openSettings()">⚙️</button>
+                    </div>
+                </header>
 
-        <!-- 知识条区域 -->
-        <div class="knowledge-bar-container">
-            <div class="knowledge-label">
-                <span>知识掌握度</span>
-                <span id="knowledgeValue">0%</span>
-            </div>
-            <div class="knowledge-bar">
-                <div class="knowledge-fill" id="knowledgeFill" style="width: 0%"></div>
-            </div>
-            <div class="knowledge-states">
-                <span class="state confused">一头雾水</span>
-                <span class="state learning">一知半解</span>
-                <span class="state mastered">完全掌握</span>
-            </div>
-        </div>
-
-        <!-- 当前话题 -->
-        <div class="current-topic" id="currentTopic" style="display: none;">
-            <span class="topic-label">当前学习：</span>
-            <span class="topic-name" id="topicName"></span>
-            <button class="reset-btn" onclick="resetSession()">🔄 换个话题</button>
-        </div>
-
-        <!-- 开始学习表单 -->
-        <div class="start-form" id="startForm">
-            <h2>📚 选择一个知识点</h2>
-            <p>输入你想要教给小费曼的知识点</p>
-            <div class="input-group">
-                <input type="text" id="topicInput" placeholder="例如：二叉树、光合作用、相对论..." 
-                       onkeypress="handleTopicKeyPress(event)">
-                <button class="start-btn" onclick="startLearning()">开始教学 🎓</button>
-            </div>
-            <div class="examples">
-                <span>热门话题：</span>
-                <button onclick="setTopic('递归算法')">递归算法</button>
-                <button onclick="setTopic('光合作用')">光合作用</button>
-                <button onclick="setTopic('供需曲线')">供需曲线</button>
-                <button onclick="setTopic('牛顿第三定律')">牛顿第三定律</button>
-            </div>
-        </div>
-
-        <!-- 对话区域 -->
-        <div class="chat-container" id="chatContainer" style="display: none;">
-            <div class="chat-messages" id="chatMessages">
-                <!-- 消息会在这里动态添加 -->
-            </div>
-            <div class="chat-input-container">
-                <textarea id="messageInput" placeholder="用你自己的话解释给小费曼听..." 
-                          onkeypress="handleMessageKeyPress(event)" rows="3"></textarea>
-                <button class="send-btn" onclick="sendMessage()" id="sendBtn">
-                    发送 📨
-                </button>
-            </div>
-            <div class="hint-box" id="hintBox" style="display: none;">
-                <span class="hint-icon">💡</span>
-                <span class="hint-text" id="hintText"></span>
-            </div>
-        </div>
-
-        <!-- 加载弹窗 -->
-        <div class="loading-overlay" id="loadingOverlay" style="display: none;">
-            <div class="loading-content">
-                <div class="loading-cat">🐱</div>
-                <div class="loading-text" id="loadingText">小费曼正在思考...</div>
-                <div class="loading-bar">
-                    <div class="loading-progress" id="loadingProgress"></div>
+                <!-- 猫咪状态区域 -->
+                <div class="cat-container">
+                    <div class="cat-avatar" id="catAvatar">
+                        <span class="cat-emoji" id="catEmoji">😺</span>
+                        <div class="cat-animation-overlay" id="catAnimationOverlay"></div>
+                    </div>
+                    <div class="cat-info">
+                        <p class="cat-name" id="catName">小费曼</p>
+                        <p class="cat-status" id="catStatus">等待学习新知识...</p>
+                        <p class="cat-catchphrase" id="catCatchphrase"></p>
+                    </div>
                 </div>
-                <div class="loading-tips" id="loadingTips">正在连接AI服务...</div>
+
+                <!-- 知识条区域 -->
+                <div class="knowledge-bar-container">
+                    <div class="knowledge-label">
+                        <span>知识掌握度</span>
+                        <span class="progress-text" id="progressText">0/100 (让我们开始吧！)</span>
+                    </div>
+                    <div class="knowledge-bar">
+                        <div class="knowledge-fill" id="knowledgeFill" style="width: 0%"></div>
+                        <div class="knowledge-sparkle" id="knowledgeSparkle"></div>
+                    </div>
+                    <div class="knowledge-states">
+                        <span class="state confused">一头雾水</span>
+                        <span class="state learning">一知半解</span>
+                        <span class="state mastered">完全掌握</span>
+                    </div>
+                    <div class="gain-feedback" id="gainFeedback" style="display: none;"></div>
+                </div>
+
+                <!-- 当前话题 -->
+                <div class="current-topic" id="currentTopic" style="display: none;">
+                    <span class="topic-label">当前学习：</span>
+                    <span class="topic-name" id="topicName"></span>
+                    <button class="reset-btn" onclick="resetSession()">🔄 换个话题</button>
+                </div>
+
+                <!-- 开始学习表单 -->
+                <div class="start-form" id="startForm">
+                    <h2>📚 选择一个知识点</h2>
+                    <p>输入你想要教给<span id="catNameInForm">小费曼</span>的知识点</p>
+                    <div class="input-group">
+                        <input type="text" id="topicInput" placeholder="例如：二叉树、光合作用、相对论..." 
+                               onkeypress="handleTopicKeyPress(event)">
+                        <button class="start-btn" onclick="startLearning()">开始教学 🎓</button>
+                    </div>
+                    <div class="examples">
+                        <span>热门话题：</span>
+                        <button onclick="setTopic('递归算法')">递归算法</button>
+                        <button onclick="setTopic('光合作用')">光合作用</button>
+                        <button onclick="setTopic('供需曲线')">供需曲线</button>
+                        <button onclick="setTopic('牛顿第三定律')">牛顿第三定律</button>
+                    </div>
+                </div>
+
+                <!-- 对话区域 -->
+                <div class="chat-container" id="chatContainer" style="display: none;">
+                    <div class="chat-messages" id="chatMessages">
+                        <!-- 消息会在这里动态添加 -->
+                    </div>
+                    <div class="chat-input-container">
+                        <textarea id="messageInput" placeholder="用你自己的话解释给猫咪听..." 
+                                  onkeypress="handleMessageKeyPress(event)" rows="3"></textarea>
+                        <button class="send-btn" onclick="sendMessage()" id="sendBtn">
+                            发送 📨
+                        </button>
+                    </div>
+                    <div class="hint-box" id="hintBox" style="display: none;">
+                        <span class="hint-icon">💡</span>
+                        <span class="hint-text" id="hintText"></span>
+                    </div>
+                </div>
+
+                <!-- 加载弹窗 -->
+                <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+                    <div class="loading-content">
+                        <div class="loading-cat" id="loadingCat">🐱</div>
+                        <div class="loading-text" id="loadingText">猫咪正在思考...</div>
+                        <div class="loading-bar">
+                            <div class="loading-progress" id="loadingProgress"></div>
+                        </div>
+                        <div class="loading-tips" id="loadingTips">正在连接AI服务...</div>
+                    </div>
+                </div>
+
+                <!-- 通关庆祝 -->
+                <div class="celebration" id="celebration" style="display: none;">
+                    <div class="celebration-content">
+                        <h2>🎉 恭喜通关！</h2>
+                        <p class="celebration-emoji">😸</p>
+                        <p><span id="catNameInCelebration">小费曼</span>完全理解了 "<span id="completedTopic"></span>"</p>
+                        <p class="celebration-message">你是一位优秀的老师！</p>
+                        <button class="new-topic-btn" onclick="resetSession()">挑战新知识点 🚀</button>
+                    </div>
+                </div>
+
+                <!-- 底部说明 -->
+                <footer class="footer">
+                    <p>💡 费曼学习法：如果你不能简单地解释一件事，说明你还没有真正理解它。</p>
+                </footer>
             </div>
         </div>
+    </div>
 
-        <!-- 通关庆祝 -->
-        <div class="celebration" id="celebration" style="display: none;">
-            <div class="celebration-content">
-                <h2>🎉 恭喜通关！</h2>
-                <p class="celebration-emoji">😸</p>
-                <p>小费曼完全理解了 "<span id="completedTopic"></span>"</p>
-                <p class="celebration-message">你是一位优秀的老师！</p>
-                <button class="new-topic-btn" onclick="resetSession()">挑战新知识点 🚀</button>
+    <!-- 设置弹窗 -->
+    <div class="settings-overlay" id="settingsOverlay" style="display: none;">
+        <div class="settings-content">
+            <h2>⚙️ 设置</h2>
+            <div class="settings-form">
+                <div class="setting-item">
+                    <label for="catNameInput">猫咪昵称</label>
+                    <input type="text" id="catNameInput" placeholder="给你的猫咪起个名字" maxlength="10">
+                </div>
+                <p class="setting-hint">猫咪会用这个名字自称哦～</p>
+            </div>
+            <div class="settings-actions">
+                <button class="settings-cancel" onclick="closeSettings()">取消</button>
+                <button class="settings-save" onclick="saveSettings()">保存</button>
             </div>
         </div>
+    </div>
 
-        <!-- 底部说明 -->
-        <footer class="footer">
-            <p>💡 费曼学习法：如果你不能简单地解释一件事，说明你还没有真正理解它。</p>
-        </footer>
+    <!-- 首次设置弹窗 -->
+    <div class="welcome-overlay" id="welcomeOverlay" style="display: none;">
+        <div class="welcome-content">
+            <h2>🐱 欢迎来到费曼的猫！</h2>
+            <p class="welcome-desc">这里有一只需要你来教的AI小猫咪</p>
+            <div class="welcome-cat">😺</div>
+            <div class="welcome-form">
+                <label>给你的猫咪起个名字吧：</label>
+                <input type="text" id="welcomeCatName" placeholder="例如：奶茶、煤球、小橘..." maxlength="10">
+            </div>
+            <button class="welcome-btn" onclick="completeWelcome()">开始使用 🚀</button>
+        </div>
     </div>
 
     <script src="script.js"></script>

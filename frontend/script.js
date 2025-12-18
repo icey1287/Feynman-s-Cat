@@ -1,27 +1,287 @@
 // 费曼的猫 - 前端脚本
 
 const API_BASE = '';  // 相对路径
-let sessionId = 'session_' + Date.now();
+let currentSessionId = null;
 let isLoading = false;
 let loadingTipsInterval = null;
+let catName = '小费曼';
+
+// 本地存储key
+const STORAGE_KEYS = {
+    CAT_NAME: 'feynman_cat_name',
+    SESSIONS: 'feynman_sessions',
+    CURRENT_SESSION: 'feynman_current_session',
+    FIRST_VISIT: 'feynman_first_visit'
+};
 
 // 加载提示语
 const loadingTipsList = [
     '正在连接AI服务...',
-    '小费曼正在准备问题...',
+    '猫咪正在准备问题...',
     '正在组织语言...',
     '思考中，请稍候...',
     '正在生成回复...',
     '快好了，再等一下...',
-    '小费曼很努力在想...',
+    '猫咪很努力在想...',
     '正在理解你的知识点...'
 ];
 
+// ==================== 本地存储管理 ====================
+
+function loadFromStorage(key, defaultValue = null) {
+    try {
+        const data = localStorage.getItem(key);
+        return data ? JSON.parse(data) : defaultValue;
+    } catch (e) {
+        console.error('Load from storage error:', e);
+        return defaultValue;
+    }
+}
+
+function saveToStorage(key, data) {
+    try {
+        localStorage.setItem(key, JSON.stringify(data));
+    } catch (e) {
+        console.error('Save to storage error:', e);
+    }
+}
+
+function getAllSessions() {
+    return loadFromStorage(STORAGE_KEYS.SESSIONS, {});
+}
+
+function saveSession(sessionId, sessionData) {
+    const sessions = getAllSessions();
+    sessions[sessionId] = {
+        ...sessionData,
+        updatedAt: new Date().toISOString()
+    };
+    saveToStorage(STORAGE_KEYS.SESSIONS, sessions);
+}
+
+function deleteSession(sessionId) {
+    const sessions = getAllSessions();
+    delete sessions[sessionId];
+    saveToStorage(STORAGE_KEYS.SESSIONS, sessions);
+    
+    if (currentSessionId === sessionId) {
+        createNewSession();
+    }
+    renderSessionList();
+}
+
+function getCurrentSessionData() {
+    if (!currentSessionId) return null;
+    const sessions = getAllSessions();
+    return sessions[currentSessionId] || null;
+}
+
+// ==================== 会话管理 ====================
+
+function createNewSession() {
+    currentSessionId = 'session_' + Date.now();
+    saveToStorage(STORAGE_KEYS.CURRENT_SESSION, currentSessionId);
+    
+    // 重置UI
+    document.getElementById('startForm').style.display = 'block';
+    document.getElementById('chatContainer').style.display = 'none';
+    document.getElementById('currentTopic').style.display = 'none';
+    document.getElementById('celebration').style.display = 'none';
+    document.getElementById('chatMessages').innerHTML = '';
+    document.getElementById('topicInput').value = '';
+    document.getElementById('hintBox').style.display = 'none';
+    
+    // 重置猫咪状态
+    document.getElementById('catEmoji').textContent = '😺';
+    document.getElementById('catStatus').textContent = '等待学习新知识...';
+    document.getElementById('catCatchphrase').textContent = '';
+    
+    // 重置知识条
+    updateKnowledgeBar(0, 0, '0/100 (让我们开始吧！)');
+    
+    renderSessionList();
+}
+
+// 恢复后端会话状态
+async function restoreBackendSession(sessionId, session) {
+    if (!session || !session.topic) return false;
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/restore`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_id: sessionId,
+                topic: session.topic,
+                knowledge_level: session.knowledgeLevel || 0,
+                messages: session.messages || []
+            })
+        });
+        
+        const data = await response.json();
+        return data.success;
+    } catch (error) {
+        console.error('Restore session error:', error);
+        return false;
+    }
+}
+
+function switchSession(sessionId) {
+    const sessions = getAllSessions();
+    const session = sessions[sessionId];
+    
+    if (!session) {
+        console.error('Session not found:', sessionId);
+        return;
+    }
+    
+    currentSessionId = sessionId;
+    saveToStorage(STORAGE_KEYS.CURRENT_SESSION, currentSessionId);
+    
+    // 恢复会话状态
+    if (session.topic) {
+        // 先恢复后端会话
+        restoreBackendSession(sessionId, session).then(success => {
+            if (!success) {
+                console.warn('Failed to restore backend session, but UI will still show history');
+            }
+        });
+        
+        document.getElementById('startForm').style.display = 'none';
+        document.getElementById('chatContainer').style.display = 'block';
+        document.getElementById('currentTopic').style.display = 'flex';
+        document.getElementById('topicName').textContent = session.topic;
+        
+        // 恢复知识条
+        updateKnowledgeBar(session.knowledgeLevel || 0, 0, session.progressText || `${session.knowledgeLevel || 0}/100`);
+        
+        // 恢复猫咪状态
+        if (session.catState) {
+            updateCatState(session.catState);
+        }
+        
+        // 恢复聊天记录
+        document.getElementById('chatMessages').innerHTML = '';
+        if (session.messages) {
+            session.messages.forEach(msg => {
+                addMessage(msg.type, msg.content, msg.knowledgeGain, false);
+            });
+        }
+        
+        // 检查是否已通关
+        if (session.knowledgeLevel >= 100) {
+            document.getElementById('celebration').style.display = 'flex';
+            document.getElementById('completedTopic').textContent = session.topic;
+            document.getElementById('catNameInCelebration').textContent = catName;
+        }
+    } else {
+        // 新会话
+        document.getElementById('startForm').style.display = 'block';
+        document.getElementById('chatContainer').style.display = 'none';
+        document.getElementById('currentTopic').style.display = 'none';
+    }
+    
+    renderSessionList();
+}
+
+function renderSessionList() {
+    const sessions = getAllSessions();
+    const sessionList = document.getElementById('sessionList');
+    
+    // 按更新时间排序
+    const sortedSessions = Object.entries(sessions)
+        .sort((a, b) => new Date(b[1].updatedAt) - new Date(a[1].updatedAt));
+    
+    if (sortedSessions.length === 0) {
+        sessionList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">暂无历史会话</p>';
+        return;
+    }
+    
+    sessionList.innerHTML = sortedSessions.map(([id, session]) => {
+        const isActive = id === currentSessionId;
+        const progress = session.knowledgeLevel || 0;
+        const emoji = progress >= 100 ? '✅' : progress >= 50 ? '📖' : '📚';
+        const date = new Date(session.updatedAt).toLocaleDateString('zh-CN');
+        
+        return `
+            <div class="session-item ${isActive ? 'active' : ''}" onclick="switchSession('${id}')">
+                <div class="session-topic">
+                    <span>${emoji}</span>
+                    <span>${session.topic || '新会话'}</span>
+                    <button class="session-delete" onclick="event.stopPropagation(); deleteSession('${id}')">🗑️</button>
+                </div>
+                <div class="session-progress">进度: ${progress}%</div>
+                <div class="session-date">${date}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ==================== 侧边栏 ====================
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const mainContent = document.querySelector('.main-content');
+    
+    sidebar.classList.toggle('hidden');
+    mainContent.classList.toggle('expanded');
+}
+
+// ==================== 设置管理 ====================
+
+function openSettings() {
+    document.getElementById('catNameInput').value = catName;
+    document.getElementById('settingsOverlay').style.display = 'flex';
+}
+
+function closeSettings() {
+    document.getElementById('settingsOverlay').style.display = 'none';
+}
+
+function saveSettings() {
+    const newName = document.getElementById('catNameInput').value.trim() || '小费曼';
+    catName = newName;
+    saveToStorage(STORAGE_KEYS.CAT_NAME, catName);
+    updateCatNameDisplay();
+    closeSettings();
+}
+
+function updateCatNameDisplay() {
+    document.getElementById('catName').textContent = catName;
+    document.getElementById('catNameInForm').textContent = catName;
+    document.getElementById('catNameInCelebration').textContent = catName;
+    
+    // 更新加载提示
+    loadingTipsList[1] = `${catName}正在准备问题...`;
+    loadingTipsList[6] = `${catName}很努力在想...`;
+}
+
+// ==================== 首次访问 ====================
+
+function checkFirstVisit() {
+    const isFirstVisit = !loadFromStorage(STORAGE_KEYS.FIRST_VISIT);
+    
+    if (isFirstVisit) {
+        document.getElementById('welcomeOverlay').style.display = 'flex';
+    }
+}
+
+function completeWelcome() {
+    const name = document.getElementById('welcomeCatName').value.trim() || '小费曼';
+    catName = name;
+    saveToStorage(STORAGE_KEYS.CAT_NAME, catName);
+    saveToStorage(STORAGE_KEYS.FIRST_VISIT, true);
+    updateCatNameDisplay();
+    document.getElementById('welcomeOverlay').style.display = 'none';
+}
+
+// ==================== 加载弹窗 ====================
+
 // 显示加载弹窗
-function showLoading(text = '小费曼正在思考...') {
+function showLoading(text = '猫咪正在思考...') {
     const overlay = document.getElementById('loadingOverlay');
     const loadingText = document.getElementById('loadingText');
-    loadingText.textContent = text;
+    loadingText.textContent = text.replace('小费曼', catName);
     overlay.style.display = 'flex';
     
     // 开始轮换提示语
@@ -42,6 +302,8 @@ function hideLoading() {
         loadingTipsInterval = null;
     }
 }
+
+// ==================== 配置检查 ====================
 
 // 检查配置状态
 async function checkConfig() {
@@ -91,6 +353,8 @@ function handleMessageKeyPress(event) {
     }
 }
 
+// ==================== 学习流程 ====================
+
 // 开始学习
 async function startLearning() {
     const topicInput = document.getElementById('topicInput');
@@ -108,7 +372,11 @@ async function startLearning() {
         const response = await fetch(`${API_BASE}/api/start`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ topic, session_id: sessionId })
+            body: JSON.stringify({ 
+                topic, 
+                session_id: currentSessionId,
+                cat_name: catName
+            })
         });
         
         const data = await response.json();
@@ -122,7 +390,10 @@ async function startLearning() {
             
             // 更新猫咪状态
             updateCatState(data.cat_state);
-            updateKnowledgeBar(data.knowledge_level);
+            updateKnowledgeBar(data.knowledge_level, 0, data.progress_text);
+            
+            // 播放动画
+            playCatAnimation(data.animation);
             
             // 添加AI消息
             addMessage('ai', data.ai_response.response);
@@ -131,6 +402,17 @@ async function startLearning() {
             if (data.ai_response.hint) {
                 showHint(data.ai_response.hint);
             }
+            
+            // 保存会话
+            saveSession(currentSessionId, {
+                topic: topic,
+                knowledgeLevel: data.knowledge_level,
+                progressText: data.progress_text,
+                catState: data.cat_state,
+                messages: [{ type: 'ai', content: data.ai_response.response }]
+            });
+            
+            renderSessionList();
         } else {
             alert(data.error || '出错了，请重试');
         }
@@ -163,7 +445,11 @@ async function sendMessage() {
         const response = await fetch(`${API_BASE}/api/teach`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message, session_id: sessionId })
+            body: JSON.stringify({ 
+                message, 
+                session_id: currentSessionId,
+                cat_name: catName
+            })
         });
         
         const data = await response.json();
@@ -174,7 +460,15 @@ async function sendMessage() {
         if (data.success) {
             // 更新状态
             updateCatState(data.cat_state);
-            updateKnowledgeBar(data.knowledge_level, data.knowledge_gain);
+            updateKnowledgeBar(data.knowledge_level, data.knowledge_gain, data.progress_text);
+            
+            // 播放动画
+            playCatAnimation(data.animation);
+            
+            // 显示增长反馈
+            if (data.gain_text) {
+                showGainFeedback(data.gain_text);
+            }
             
             // 添加AI消息
             addMessage('ai', data.ai_response.response, data.knowledge_gain);
@@ -183,6 +477,19 @@ async function sendMessage() {
             if (data.ai_response.hint) {
                 showHint(data.ai_response.hint);
             }
+            
+            // 更新本地存储
+            const session = getCurrentSessionData() || {};
+            session.knowledgeLevel = data.knowledge_level;
+            session.progressText = data.progress_text;
+            session.catState = data.cat_state;
+            session.messages = session.messages || [];
+            session.messages.push({ type: 'user', content: message });
+            session.messages.push({ type: 'ai', content: data.ai_response.response, knowledgeGain: data.knowledge_gain });
+            saveSession(currentSessionId, session);
+            
+            // 更新历史会话列表
+            renderSessionList();
             
             // 检查是否通关
             if (data.is_complete) {
@@ -201,7 +508,7 @@ async function sendMessage() {
 }
 
 // 添加消息到聊天区域
-function addMessage(type, content, knowledgeGain = null) {
+function addMessage(type, content, knowledgeGain = null, saveToSession = true) {
     const chatMessages = document.getElementById('chatMessages');
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${type}`;
@@ -264,28 +571,58 @@ function updateCatState(catState) {
     document.getElementById('catEmoji').textContent = catState.emoji;
     document.getElementById('catStatus').textContent = catState.message;
     
-    // 更新头像动画
+    // 显示口头禅
+    if (catState.catchphrase) {
+        document.getElementById('catCatchphrase').textContent = catState.catchphrase;
+    }
+}
+
+// 播放猫咪动画
+function playCatAnimation(animationType) {
     const avatar = document.getElementById('catAvatar');
-    avatar.style.animation = 'none';
-    avatar.offsetHeight; // 触发重绘
-    avatar.style.animation = 'bounce 2s ease-in-out infinite';
+    
+    // 移除所有动画类
+    avatar.classList.remove('tail-wag', 'ear-twitch', 'paw-tap', 'thinking', 'confused', 'celebrate');
+    
+    // 添加新动画
+    if (animationType) {
+        const animationClass = animationType.replace('_', '-');
+        avatar.classList.add(animationClass);
+        
+        // 动画结束后恢复默认
+        setTimeout(() => {
+            avatar.classList.remove(animationClass);
+        }, 2000);
+    }
 }
 
 // 更新知识条
-function updateKnowledgeBar(level, gain = 0) {
+function updateKnowledgeBar(level, gain = 0, progressText = null) {
     const fill = document.getElementById('knowledgeFill');
-    const value = document.getElementById('knowledgeValue');
+    const progressTextEl = document.getElementById('progressText');
     
     fill.style.width = `${level}%`;
-    value.textContent = `${level}%`;
+    
+    if (progressText) {
+        progressTextEl.textContent = progressText;
+    } else {
+        progressTextEl.textContent = `${level}%`;
+    }
     
     // 如果有增长，添加闪烁效果
     if (gain > 0) {
-        fill.style.animation = 'pulse 0.5s ease';
+        fill.classList.add('growing');
         setTimeout(() => {
-            fill.style.animation = '';
-        }, 500);
+            fill.classList.remove('growing');
+        }, 1500);
     }
+}
+
+// 显示增长反馈
+function showGainFeedback(text) {
+    const feedback = document.getElementById('gainFeedback');
+    feedback.textContent = text;
+    feedback.style.display = 'block';
 }
 
 // 显示提示
@@ -294,11 +631,6 @@ function showHint(hint) {
     const hintText = document.getElementById('hintText');
     hintText.textContent = hint;
     hintBox.style.display = 'flex';
-    
-    // 5秒后隐藏
-    setTimeout(() => {
-        hintBox.style.display = 'none';
-    }, 5000);
 }
 
 // 显示通关庆祝
@@ -306,6 +638,7 @@ function showCelebration() {
     const celebration = document.getElementById('celebration');
     const topicName = document.getElementById('topicName').textContent;
     document.getElementById('completedTopic').textContent = topicName;
+    document.getElementById('catNameInCelebration').textContent = catName;
     celebration.style.display = 'flex';
 }
 
@@ -315,30 +648,14 @@ async function resetSession() {
         await fetch(`${API_BASE}/api/reset`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ session_id: sessionId })
+            body: JSON.stringify({ session_id: currentSessionId })
         });
     } catch (error) {
         console.error('Reset error:', error);
     }
     
-    // 生成新的会话ID
-    sessionId = 'session_' + Date.now();
-    
-    // 重置UI
-    document.getElementById('startForm').style.display = 'block';
-    document.getElementById('chatContainer').style.display = 'none';
-    document.getElementById('currentTopic').style.display = 'none';
-    document.getElementById('celebration').style.display = 'none';
-    document.getElementById('chatMessages').innerHTML = '';
-    document.getElementById('topicInput').value = '';
-    document.getElementById('hintBox').style.display = 'none';
-    
-    // 重置猫咪状态
-    document.getElementById('catEmoji').textContent = '😺';
-    document.getElementById('catStatus').textContent = '等待学习新知识...';
-    
-    // 重置知识条
-    updateKnowledgeBar(0);
+    // 创建新会话
+    createNewSession();
 }
 
 // 设置加载状态
@@ -351,8 +668,29 @@ function setLoadingState(loading) {
     }
 }
 
-// 页面加载完成后检查配置
+// 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
+    // 加载猫咪昵称
+    catName = loadFromStorage(STORAGE_KEYS.CAT_NAME, '小费曼');
+    updateCatNameDisplay();
+    
+    // 检查首次访问
+    checkFirstVisit();
+    
+    // 不在刷新时自动恢复上次会话 — 总是进入初始页面
+    // 清除存储的当前会话，保证刷新后回到起始页（仍保留历史会话在侧边栏）
+    try {
+        localStorage.removeItem(STORAGE_KEYS.CURRENT_SESSION);
+    } catch (e) {
+        console.warn('无法移除当前会话存储:', e);
+    }
+    currentSessionId = null;
+    createNewSession();
+    
+    // 渲染会话列表
+    renderSessionList();
+    
+    // 检查配置
     checkConfig();
     
     // 添加CSS动画
@@ -364,4 +702,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     `;
     document.head.appendChild(style);
+    
+    // 移动端默认隐藏侧边栏
+    if (window.innerWidth <= 768) {
+        document.getElementById('sidebar').classList.add('hidden');
+        document.querySelector('.main-content').classList.add('expanded');
+    }
 });
