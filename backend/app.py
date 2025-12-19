@@ -250,15 +250,32 @@ def generate_ai_response(session_id, user_message, is_new_topic=False, grade="de
 重要规则：
 - 你不是在考试用户，而是在被用户教导
 - 问的问题要刁钻但合理，目的是帮助用户发现自己理解上的漏洞
-- 每次回复后，根据用户解释的质量给出知识增长建议（0-25分）
-- 回复格式必须是JSON：{{"response": "你的回复", "knowledge_gain": 数字, "hint": "给用户的小提示"}}
+- 必须仔细阅读用户【当前这条消息】的内容，首先判断其正确性，然后根据相关性和解释质量来评分
+- 回复要简洁精炼，控制在50-100字以内，不要长篇大论
+- 回复格式必须是JSON：{{"response": "你的回复", "knowledge_gain": 数字, "hint": "给用户的改进提示"}}
 
-评分标准（要大方给分，让用户有成就感）：
-- 用类比或生动例子解释：knowledge_gain = 20-25
-- 非常清晰有逻辑，抓住核心要点：knowledge_gain = 15-20
-- 比较清晰，有条理：knowledge_gain = 10-15  
-- 有点模糊但方向正确：knowledge_gain = 5-10
-- 很模糊或有错误：knowledge_gain = 2-5"""
+严格评分标准（必须根据当前消息内容评分，与之前的对话无关）：
+【首先判断正确性 - 错误必须给0分】
+- 如果用户的解释包含事实性错误或概念性错误：knowledge_gain = 0，并在回复中指出错误
+- 如果用户的解释逻辑混乱、自相矛盾：knowledge_gain = 0
+- 如果用户用错了类比，类比对象和知识点不匹配：knowledge_gain = 0
+
+【其次判断相关性 - 不相关给0分】
+- 如果当前消息完全没有在解释知识点，只是打招呼、闲聊、或说无关的话：knowledge_gain = 0
+- 如果当前消息明显是在敷衍、瞎写、胡说八道：knowledge_gain = 0
+- 如果当前消息答非所问，没有回应你之前的提问：knowledge_gain = 0
+
+【只有正确且相关才能得分】
+- 正确但很模糊，说了等于没说：knowledge_gain = 2-5
+- 正确且方向对但解释不够清楚：knowledge_gain = 5-10
+- 正确且解释清晰有条理：knowledge_gain = 10-15
+- 正确且非常清晰，抓住核心要点：knowledge_gain = 15-20
+- 正确且用了精妙的类比或生动例子：knowledge_gain = 20-25
+
+hint规则（hint是给教学的用户看的，不是给你自己的）：
+- hint应该是帮助用户更好地解释知识点的建议，比如"试试用一个生活中的例子"
+- 只有当 knowledge_gain <= 5 时，才在hint中给出具体改进建议
+- 当 knowledge_gain > 5 时，hint必须设为空字符串"""""
 
     messages = [{"role": "system", "content": system_prompt}]
     
@@ -279,7 +296,7 @@ def generate_ai_response(session_id, user_message, is_new_topic=False, grade="de
         response = client.chat.completions.create(
             model=model,
             messages=messages,
-            temperature=0.8,
+            temperature=0.6,  # 降低温度使评分更稳定
             max_tokens=500
         )
         

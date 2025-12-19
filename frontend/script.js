@@ -22,6 +22,114 @@ const STORAGE_KEYS = {
 let userGrade = 'default';
 let userSubject = 'all';
 
+// 热门话题配置（按年级和学科 - 使用具体小知识点）
+const HOT_TOPICS = {
+    // 按年级分类 - 使用与HTML相同的key
+    'primary_1_3': {
+        'all': ['10以内加减法', '三角形和圆形', '春夏秋冬', '小蝌蚪变青蛙'],
+        'math': ['凑十法', '钟表读数', '比大小符号', '图形数数'],
+        'chinese': ['声母b p m f', '田字格写字', '看图说话', '小猫钓鱼'],
+        'english': ['字母A B C', '红黄蓝颜色', '数字one two', '小动物cat dog'],
+        'science': ['蚂蚁搬家', '种子发芽', '影子变化', '冰变成水'],
+        'default': ['凑十法', '声母b p m f', '春夏秋冬', '三角形']
+    },
+    'primary_4_6': {
+        'all': ['分数加减', '叶绿体作用', '黄河流向', '静夜思'],
+        'math': ['通分', '长方形面积', '小数除法', '鸡兔同笼'],
+        'chinese': ['比喻修辞', '写景作文', '草船借箭', '学奕'],
+        'english': ['现在进行时', '颜色词汇', 'What is this句型', '看图写话'],
+        'physics': ['光沿直线传播', '杠杆原理', '水的浮力', '磁铁南北极'],
+        'chemistry': ['固液气三态', '氧气含量', '蜡烛燃烧', '过滤方法'],
+        'biology': ['叶绿体作用', '哺乳动物特征', '心脏跳动', '草原食物链'],
+        'history': ['造纸术发明', '嫦娥奔月', '大禹治水', '岳飞抗金'],
+        'geography': ['黄河流向', '家乡地形图', '东南西北', '山地平原'],
+        'default': ['通分', '叶绿体作用', '静夜思', '现在进行时']
+    },
+    'middle_school': {
+        'all': ['配方法解方程', '细胞膜结构', '出师表翻译', '力的平衡'],
+        'math': ['配方法', '一次函数斜率', '三角形全等', '频率直方图'],
+        'chinese': ['出师表翻译', '议论文三要素', '骆驼祥子', '望岳鉴赏'],
+        'english': ['过去完成时', '阅读主旨题', '情态动词用法', '邀请信格式'],
+        'physics': ['力的平衡', '串并联电路', '入射角反射角', '大气压强'],
+        'chemistry': ['化学式书写', '中和反应', '金属活动顺序', '氧化与还原'],
+        'biology': ['细胞膜结构', 'DNA双螺旋', '碳循环', '小肠绒毛'],
+        'history': ['洋务运动', '卢沟桥事变', '武昌起义', '家庭联产承包'],
+        'geography': ['温带季风气候', '人口金字塔', '煤炭分布', '京广铁路'],
+        'politics': ['公民基本权利', '未成年人保护法', '人民代表大会', '初级阶段'],
+        'default': ['配方法', '力的平衡', '细胞膜结构', '出师表翻译']
+    },
+    'high_school': {
+        'all': ['导数求极值', '酯化反应', '矛盾特殊性', '法拉第电磁感应'],
+        'math': ['导数求极值', '数列通项公式', '空间向量', '二项式展开'],
+        'chinese': ['滕王阁序典故', '作文立意', '意识流小说', '雨巷意象'],
+        'english': ['定语从句关系词', '长难句分析', '书信结尾', '听力数字题'],
+        'physics': ['法拉第电磁感应', '动量定理', '第一宇宙速度', '简谐振动'],
+        'chemistry': ['酯化反应', '勒夏特列原理', '原电池原理', '杂化轨道'],
+        'biology': ['转录翻译', '突触传递', 'T细胞B细胞', '能量金字塔'],
+        'history': ['一战导火索', '蒸汽机发明', '文艺复兴三杰', '铁幕演说'],
+        'geography': ['三圈环流', '北大西洋暖流', '城市功能分区', '循环经济'],
+        'politics': ['矛盾特殊性', '边际效用', '政体与国体', '文化自信'],
+        'default': ['导数求极值', '法拉第电磁感应', '酯化反应', '矛盾特殊性']
+    },
+    'university': {
+        'all': ['快速排序', '薛定谔方程', 'IS-LM模型', '反向传播算法'],
+        'math': ['矩阵的秩', '贝叶斯公式', '柯西积分', 'Lp空间'],
+        'physics': ['薛定谔方程', '卡诺循环', '麦克斯韦方程组', '洛伦兹变换'],
+        'chemistry': ['亲核取代SN2', '晶体场理论', '阿伦尼乌斯公式', '分子轨道'],
+        'biology': ['PCR扩增', '基因组注释', '长时程增强', '自然选择压力'],
+        'cs': ['快速排序', '进程调度', 'TCP三次握手', 'LL语法分析'],
+        'programming': ['快速排序', '进程调度', 'TCP三次握手', 'LL语法分析'],
+        'economics': ['IS-LM模型', '弹性系数', '纳什均衡', '回归分析'],
+        'ai': ['反向传播算法', '梯度下降', 'CNN卷积层', 'Transformer注意力'],
+        'psychology': ['工作记忆', '皮亚杰阶段', '从众实验', 't检验'],
+        'philosophy': ['三段论', '功利主义', '本体论证明', '知识三元定义'],
+        'default': ['快速排序', '薛定谔方程', 'IS-LM模型', '反向传播算法']
+    },
+    'default': {
+        'all': ['二分查找', '叶绿体光反应', '需求弹性', '牛顿第三定律'],
+        'math': ['洛必达法则', '矩阵乘法', '条件概率', '素数判定'],
+        'physics': ['牛顿第三定律', '欧姆定律', '热传导', '时间膨胀'],
+        'chemistry': ['共价键', '酸碱滴定', '烷烃命名', '电极电势'],
+        'biology': ['有丝分裂', '孟德尔定律', '物种形成', '碳循环'],
+        'cs': ['二分查找', '栈和队列', '时间复杂度', '单例模式'],
+        'programming': ['二分查找', '栈和队列', '时间复杂度', '单例模式'],
+        'default': ['二分查找', '叶绿体光反应', '需求弹性', '牛顿第三定律']
+    }
+};
+
+// 年级对应的学科列表
+const GRADE_SUBJECTS = {
+    'primary_1_3': ['all', 'math', 'chinese'],
+    'primary_4_6': ['all', 'math', 'chinese', 'english', 'science'],
+    'middle_school': ['all', 'math', 'chinese', 'english', 'physics', 'chemistry', 'biology', 'history', 'geography', 'politics'],
+    'high_school': ['all', 'math', 'chinese', 'english', 'physics', 'chemistry', 'biology', 'history', 'geography', 'politics'],
+    'university': ['all', 'math', 'physics', 'chemistry', 'biology', 'cs', 'programming', 'economics', 'ai', 'psychology', 'philosophy'],
+    'default': ['all', 'math', 'physics', 'chemistry', 'biology', 'cs', 'programming', 'economics']
+};
+
+// 学科名称映射
+const SUBJECT_LABELS = {
+    'all': '百科全书（所有学科）',
+    'math': '数学',
+    'chinese': '语文',
+    'english': '英语',
+    'science': '科学',
+    'physics': '物理',
+    'chemistry': '化学',
+    'biology': '生物',
+    'history': '历史',
+    'geography': '地理',
+    'politics': '政治',
+    'cs': '计算机科学',
+    'programming': '编程/计算机',
+    'economics': '经济学',
+    'ai': '人工智能',
+    'psychology': '心理学',
+    'philosophy': '哲学',
+    'art': '艺术',
+    'music': '音乐'
+};
+
 // 成就定义
 const ACHIEVEMENTS = {
     first_topic: {
@@ -222,6 +330,10 @@ function switchSession(sessionId) {
     currentSessionId = sessionId;
     saveToStorage(STORAGE_KEYS.CURRENT_SESSION, currentSessionId);
     
+    // 清除之前的hint和得分提示
+    document.getElementById('hintBox').style.display = 'none';
+    document.getElementById('gainFeedback').style.display = 'none';
+
     // 恢复会话状态
     if (session.topic) {
         // 先恢复后端会话
@@ -316,6 +428,8 @@ function toggleSidebar() {
 function openSettings() {
     document.getElementById('catNameInput').value = catName;
     document.getElementById('gradeSelect').value = userGrade;
+    // 先更新学科选项，再设置当前值
+    updateSubjectOptions('gradeSelect', 'subjectSelect');
     document.getElementById('subjectSelect').value = userSubject;
     document.getElementById('settingsOverlay').style.display = 'flex';
 }
@@ -338,6 +452,7 @@ function saveSettings() {
     saveToStorage(STORAGE_KEYS.SUBJECT, userSubject);
     
     updateCatNameDisplay();
+    updateHotTopics();
     closeSettings();
 }
 
@@ -376,6 +491,7 @@ function completeWelcome() {
     saveToStorage(STORAGE_KEYS.FIRST_VISIT, true);
     
     updateCatNameDisplay();
+    updateHotTopics();
     document.getElementById('welcomeOverlay').style.display = 'none';
 }
 
@@ -440,6 +556,53 @@ function showSystemMessage(message) {
 // 设置话题
 function setTopic(topic) {
     document.getElementById('topicInput').value = topic;
+}
+
+// 更新学科选项（根据年级）
+function updateSubjectOptions(gradeSelectId, subjectSelectId) {
+    const gradeSelect = document.getElementById(gradeSelectId);
+    const subjectSelect = document.getElementById(subjectSelectId);
+    if (!gradeSelect || !subjectSelect) return;
+    
+    const grade = gradeSelect.value;
+    const subjects = GRADE_SUBJECTS[grade] || GRADE_SUBJECTS['default'];
+    
+    // 保存当前选择
+    const currentSubject = subjectSelect.value;
+    
+    // 清空并重新生成选项
+    subjectSelect.innerHTML = '';
+    subjects.forEach(subjectId => {
+        const option = document.createElement('option');
+        option.value = subjectId;
+        option.textContent = SUBJECT_LABELS[subjectId] || subjectId;
+        subjectSelect.appendChild(option);
+    });
+    
+    // 如果当前学科在新列表中，保持选择；否则重置为all
+    if (subjects.includes(currentSubject)) {
+        subjectSelect.value = currentSubject;
+    } else {
+        subjectSelect.value = 'all';
+    }
+}
+
+// 更新热门话题显示
+function updateHotTopics() {
+    const container = document.getElementById('topicExamples');
+    if (!container) return;
+    
+    // 根据年级和学科获取话题
+    const gradeTopics = HOT_TOPICS[userGrade] || HOT_TOPICS['default'];
+    const topics = gradeTopics[userSubject] || gradeTopics['default'] || gradeTopics['all'];
+    
+    // 生成按钮HTML
+    let html = '<span>热门话题：</span>';
+    topics.forEach(topic => {
+        html += `<button onclick="setTopic('${topic}')">${topic}</button>`;
+    });
+    
+    container.innerHTML = html;
 }
 
 // 处理话题输入框回车
@@ -520,10 +683,8 @@ async function startLearning() {
             // 添加AI消息
             addMessage('ai', responseText);
             
-            // 显示提示
-            if (hint) {
-                showHint(hint);
-            }
+            // 第一次回复不显示hint（隐藏之前的hint）
+            document.getElementById('hintBox').style.display = 'none';
             
             // 保存会话
             saveSession(currentSessionId, {
@@ -834,6 +995,25 @@ document.addEventListener('DOMContentLoaded', () => {
     userGrade = loadFromStorage(STORAGE_KEYS.GRADE, 'default');
     userSubject = loadFromStorage(STORAGE_KEYS.SUBJECT, 'all');
     updateCatNameDisplay();
+    
+    // 更新热门话题
+    updateHotTopics();
+    
+    // 绑定年级选择变化事件（设置页面）
+    const gradeSelect = document.getElementById('gradeSelect');
+    if (gradeSelect) {
+        gradeSelect.addEventListener('change', () => {
+            updateSubjectOptions('gradeSelect', 'subjectSelect');
+        });
+    }
+    
+    // 绑定年级选择变化事件（欢迎页面）
+    const welcomeGrade = document.getElementById('welcomeGrade');
+    if (welcomeGrade) {
+        welcomeGrade.addEventListener('change', () => {
+            updateSubjectOptions('welcomeGrade', 'welcomeSubject');
+        });
+    }
     
     // 检查首次访问
     checkFirstVisit();
