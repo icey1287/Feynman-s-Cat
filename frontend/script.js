@@ -11,7 +11,91 @@ const STORAGE_KEYS = {
     CAT_NAME: 'feynman_cat_name',
     SESSIONS: 'feynman_sessions',
     CURRENT_SESSION: 'feynman_current_session',
-    FIRST_VISIT: 'feynman_first_visit'
+    FIRST_VISIT: 'feynman_first_visit',
+    GRADE: 'feynman_grade',
+    SUBJECT: 'feynman_subject',
+    ACHIEVEMENTS: 'feynman_achievements',
+    STATS: 'feynman_stats'
+};
+
+// 用户资料
+let userGrade = 'default';
+let userSubject = 'all';
+
+// 成就定义
+const ACHIEVEMENTS = {
+    first_topic: {
+        id: 'first_topic',
+        name: '初露锋芒',
+        description: '开始第一个知识点的学习',
+        icon: '🌟'
+    },
+    first_complete: {
+        id: 'first_complete',
+        name: '循循善诱',
+        description: '完成第一个知识点（知识条达到100%）',
+        icon: '🏆'
+    },
+    reach_50: {
+        id: 'reach_50',
+        name: '渐入佳境',
+        description: '将知识条提升到50%',
+        icon: '📈'
+    },
+    five_topics: {
+        id: 'five_topics',
+        name: '博学多才',
+        description: '学习5个不同的知识点',
+        icon: '📚'
+    },
+    ten_topics: {
+        id: 'ten_topics',
+        name: '知识达人',
+        description: '学习10个不同的知识点',
+        icon: '🎓'
+    },
+    three_complete: {
+        id: 'three_complete',
+        name: '教学能手',
+        description: '完成3个知识点',
+        icon: '⭐'
+    },
+    five_complete: {
+        id: 'five_complete',
+        name: '费曼大师',
+        description: '完成5个知识点',
+        icon: '👑'
+    },
+    high_score: {
+        id: 'high_score',
+        name: '一语中的',
+        description: '单次获得20分以上的知识增长',
+        icon: '💡'
+    },
+    streak_3: {
+        id: 'streak_3',
+        name: '持之以恒',
+        description: '连续3天学习',
+        icon: '🔥'
+    },
+    streak_7: {
+        id: 'streak_7',
+        name: '学习达人',
+        description: '连续7天学习',
+        icon: '🌈'
+    },
+    total_knowledge_500: {
+        id: 'total_knowledge_500',
+        name: '知识积累',
+        description: '累计获得500分知识点',
+        icon: '💎'
+    },
+    messages_50: {
+        id: 'messages_50',
+        name: '侃侃而谈',
+        description: '发送50条教学消息',
+        icon: '💬'
+    }
 };
 
 // 加载提示语
@@ -231,6 +315,8 @@ function toggleSidebar() {
 
 function openSettings() {
     document.getElementById('catNameInput').value = catName;
+    document.getElementById('gradeSelect').value = userGrade;
+    document.getElementById('subjectSelect').value = userSubject;
     document.getElementById('settingsOverlay').style.display = 'flex';
 }
 
@@ -240,8 +326,17 @@ function closeSettings() {
 
 function saveSettings() {
     const newName = document.getElementById('catNameInput').value.trim() || '小费曼';
+    const newGrade = document.getElementById('gradeSelect').value;
+    const newSubject = document.getElementById('subjectSelect').value;
+    
     catName = newName;
+    userGrade = newGrade;
+    userSubject = newSubject;
+    
     saveToStorage(STORAGE_KEYS.CAT_NAME, catName);
+    saveToStorage(STORAGE_KEYS.GRADE, userGrade);
+    saveToStorage(STORAGE_KEYS.SUBJECT, userSubject);
+    
     updateCatNameDisplay();
     closeSettings();
 }
@@ -268,9 +363,18 @@ function checkFirstVisit() {
 
 function completeWelcome() {
     const name = document.getElementById('welcomeCatName').value.trim() || '小费曼';
+    const grade = document.getElementById('welcomeGrade').value || 'default';
+    const subject = document.getElementById('welcomeSubject').value || 'all';
+    
     catName = name;
+    userGrade = grade;
+    userSubject = subject;
+    
     saveToStorage(STORAGE_KEYS.CAT_NAME, catName);
+    saveToStorage(STORAGE_KEYS.GRADE, userGrade);
+    saveToStorage(STORAGE_KEYS.SUBJECT, userSubject);
     saveToStorage(STORAGE_KEYS.FIRST_VISIT, true);
+    
     updateCatNameDisplay();
     document.getElementById('welcomeOverlay').style.display = 'none';
 }
@@ -375,7 +479,9 @@ async function startLearning() {
             body: JSON.stringify({ 
                 topic, 
                 session_id: currentSessionId,
-                cat_name: catName
+                cat_name: catName,
+                grade: userGrade,
+                subject: userSubject
             })
         });
         
@@ -395,12 +501,28 @@ async function startLearning() {
             // 播放动画
             playCatAnimation(data.animation);
             
+            // 处理AI响应（防止嵌套格式问题）
+            let aiResponse = data.ai_response;
+            let responseText = '';
+            let hint = '';
+            
+            if (typeof aiResponse === 'string') {
+                responseText = aiResponse;
+            } else if (aiResponse && typeof aiResponse === 'object') {
+                if (aiResponse.response && typeof aiResponse.response === 'object') {
+                    responseText = aiResponse.response.response || JSON.stringify(aiResponse.response);
+                } else {
+                    responseText = aiResponse.response || JSON.stringify(aiResponse);
+                }
+                hint = aiResponse.hint || '';
+            }
+            
             // 添加AI消息
-            addMessage('ai', data.ai_response.response);
+            addMessage('ai', responseText);
             
             // 显示提示
-            if (data.ai_response.hint) {
-                showHint(data.ai_response.hint);
+            if (hint) {
+                showHint(hint);
             }
             
             // 保存会话
@@ -409,10 +531,16 @@ async function startLearning() {
                 knowledgeLevel: data.knowledge_level,
                 progressText: data.progress_text,
                 catState: data.cat_state,
-                messages: [{ type: 'ai', content: data.ai_response.response }]
+                messages: [{ type: 'ai', content: responseText }]
             });
             
             renderSessionList();
+            
+            // 检查成就：开始第一个知识点
+            checkAchievement('first_topic');
+            
+            // 更新统计
+            updateStats('topicStarted');
         } else {
             alert(data.error || '出错了，请重试');
         }
@@ -470,12 +598,29 @@ async function sendMessage() {
                 showGainFeedback(data.gain_text);
             }
             
+            // 处理AI响应（防止嵌套格式问题）
+            let aiResponse = data.ai_response;
+            let responseText = '';
+            let hint = '';
+            
+            if (typeof aiResponse === 'string') {
+                responseText = aiResponse;
+            } else if (aiResponse && typeof aiResponse === 'object') {
+                // 如果response本身又是一个对象，取其中的response
+                if (aiResponse.response && typeof aiResponse.response === 'object') {
+                    responseText = aiResponse.response.response || JSON.stringify(aiResponse.response);
+                } else {
+                    responseText = aiResponse.response || JSON.stringify(aiResponse);
+                }
+                hint = aiResponse.hint || '';
+            }
+            
             // 添加AI消息
-            addMessage('ai', data.ai_response.response, data.knowledge_gain);
+            addMessage('ai', responseText, data.knowledge_gain);
             
             // 显示提示
-            if (data.ai_response.hint) {
-                showHint(data.ai_response.hint);
+            if (hint) {
+                showHint(hint);
             }
             
             // 更新本地存储
@@ -485,14 +630,28 @@ async function sendMessage() {
             session.catState = data.cat_state;
             session.messages = session.messages || [];
             session.messages.push({ type: 'user', content: message });
-            session.messages.push({ type: 'ai', content: data.ai_response.response, knowledgeGain: data.knowledge_gain });
+            session.messages.push({ type: 'ai', content: responseText, knowledgeGain: data.knowledge_gain });
             saveSession(currentSessionId, session);
             
             // 更新历史会话列表
             renderSessionList();
             
+            // 更新统计
+            updateStats('messageSent', { knowledgeGain: data.knowledge_gain });
+            
+            // 检查成就
+            if (data.knowledge_gain >= 20) {
+                checkAchievement('high_score');
+            }
+            if (data.knowledge_level >= 50) {
+                checkAchievement('reach_50');
+            }
+            
             // 检查是否通关
             if (data.is_complete) {
+                checkAchievement('first_complete');
+                updateStats('topicCompleted');
+                checkCompletionAchievements();
                 setTimeout(() => showCelebration(), 1000);
             }
         } else {
@@ -672,6 +831,8 @@ function setLoadingState(loading) {
 document.addEventListener('DOMContentLoaded', () => {
     // 加载猫咪昵称
     catName = loadFromStorage(STORAGE_KEYS.CAT_NAME, '小费曼');
+    userGrade = loadFromStorage(STORAGE_KEYS.GRADE, 'default');
+    userSubject = loadFromStorage(STORAGE_KEYS.SUBJECT, 'all');
     updateCatNameDisplay();
     
     // 检查首次访问
@@ -693,6 +854,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 检查配置
     checkConfig();
     
+    // 更新连续天数
+    updateStreak();
+    
     // 添加CSS动画
     const style = document.createElement('style');
     style.textContent = `
@@ -709,3 +873,709 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelector('.main-content').classList.add('expanded');
     }
 });
+
+// ==================== 成就系统 ====================
+
+function getUnlockedAchievements() {
+    return loadFromStorage(STORAGE_KEYS.ACHIEVEMENTS, {});
+}
+
+function unlockAchievement(achievementId) {
+    const unlocked = getUnlockedAchievements();
+    if (unlocked[achievementId]) return false; // 已解锁
+    
+    unlocked[achievementId] = {
+        unlockedAt: new Date().toISOString()
+    };
+    saveToStorage(STORAGE_KEYS.ACHIEVEMENTS, unlocked);
+    return true;
+}
+
+function checkAchievement(achievementId) {
+    const achievement = ACHIEVEMENTS[achievementId];
+    if (!achievement) return;
+    
+    if (unlockAchievement(achievementId)) {
+        showAchievementNotification(achievement);
+    }
+}
+
+function checkCompletionAchievements() {
+    const sessions = getAllSessions();
+    const completedCount = Object.values(sessions).filter(s => s.knowledgeLevel >= 100).length;
+    const totalCount = Object.keys(sessions).length;
+    
+    if (totalCount >= 5) checkAchievement('five_topics');
+    if (totalCount >= 10) checkAchievement('ten_topics');
+    if (completedCount >= 3) checkAchievement('three_complete');
+    if (completedCount >= 5) checkAchievement('five_complete');
+}
+
+function showAchievementNotification(achievement) {
+    const notification = document.getElementById('achievementNotification');
+    document.getElementById('achievementNotificationIcon').textContent = achievement.icon;
+    document.getElementById('achievementNotificationName').textContent = achievement.name;
+    
+    notification.style.display = 'block';
+    notification.style.animation = 'none';
+    notification.offsetHeight; // 触发重绘
+    notification.style.animation = 'slideInRight 0.5s ease, fadeOut 0.5s ease 3s forwards';
+    
+    setTimeout(() => {
+        notification.style.display = 'none';
+    }, 3500);
+}
+
+function openAchievements() {
+    const unlocked = getUnlockedAchievements();
+    const list = document.getElementById('achievementsList');
+    const unlockedCount = Object.keys(unlocked).length;
+    const totalCount = Object.keys(ACHIEVEMENTS).length;
+    
+    document.getElementById('unlockedCount').textContent = unlockedCount;
+    document.getElementById('totalCount').textContent = totalCount;
+    
+    list.innerHTML = Object.values(ACHIEVEMENTS).map(achievement => {
+        const isUnlocked = unlocked[achievement.id];
+        const unlockedDate = isUnlocked ? new Date(isUnlocked.unlockedAt).toLocaleDateString('zh-CN') : '';
+        
+        return `
+            <div class="achievement-item ${isUnlocked ? 'unlocked' : 'locked'}">
+                <div class="icon">${achievement.icon}</div>
+                <div class="info">
+                    <div class="name">${achievement.name}</div>
+                    <div class="description">${achievement.description}</div>
+                    ${isUnlocked ? `<div class="unlocked-date">🎉 ${unlockedDate} 解锁</div>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    document.getElementById('achievementsOverlay').style.display = 'flex';
+}
+
+function closeAchievements() {
+    document.getElementById('achievementsOverlay').style.display = 'none';
+}
+
+// ==================== 统计系统 ====================
+
+let currentStatsDate = new Date(); // 当前查看的日期
+let cachedSubjectClassifications = null;
+
+// 学科名称映射
+const SUBJECT_NAMES = {
+    'math': '数学',
+    'physics': '物理',
+    'chemistry': '化学',
+    'biology': '生物',
+    'history': '历史',
+    'geography': '地理',
+    'chinese': '语文',
+    'english': '英语',
+    'programming': '编程/计算机',
+    'art': '艺术',
+    'music': '音乐',
+    'philosophy': '哲学',
+    'economics': '经济学',
+    'psychology': '心理学',
+    'other': '其他',
+    'all': '百科全书'
+};
+
+function getStats() {
+    return loadFromStorage(STORAGE_KEYS.STATS, {
+        topicsStarted: 0,
+        topicsCompleted: 0,
+        totalKnowledge: 0,
+        totalMessages: 0,
+        currentStreak: 0,
+        lastActiveDate: null,
+        dailyKnowledge: {},
+        dailyMessages: {},
+        dailyTopics: {},
+        subjectClassifications: {}
+    });
+}
+
+function saveStats(stats) {
+    saveToStorage(STORAGE_KEYS.STATS, stats);
+}
+
+function updateStats(action, data = {}) {
+    const stats = getStats();
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 初始化每日统计
+    stats.dailyKnowledge = stats.dailyKnowledge || {};
+    stats.dailyMessages = stats.dailyMessages || {};
+    stats.dailyTopics = stats.dailyTopics || {};
+    
+    switch (action) {
+        case 'topicStarted':
+            stats.topicsStarted = (stats.topicsStarted || 0) + 1;
+            stats.dailyTopics[today] = (stats.dailyTopics[today] || 0) + 1;
+            break;
+        case 'topicCompleted':
+            stats.topicsCompleted = (stats.topicsCompleted || 0) + 1;
+            break;
+        case 'messageSent':
+            stats.totalMessages = (stats.totalMessages || 0) + 1;
+            stats.dailyMessages[today] = (stats.dailyMessages[today] || 0) + 1;
+            if (data.knowledgeGain) {
+                stats.totalKnowledge = (stats.totalKnowledge || 0) + data.knowledgeGain;
+                stats.dailyKnowledge[today] = (stats.dailyKnowledge[today] || 0) + data.knowledgeGain;
+            }
+            break;
+    }
+    
+    stats.lastActiveDate = today;
+    saveStats(stats);
+    
+    // 检查统计相关成就
+    if (stats.totalKnowledge >= 500) checkAchievement('total_knowledge_500');
+    if (stats.totalMessages >= 50) checkAchievement('messages_50');
+}
+
+function updateStreak() {
+    const stats = getStats();
+    const today = new Date().toISOString().split('T')[0];
+    const lastActive = stats.lastActiveDate;
+    
+    if (!lastActive) {
+        stats.currentStreak = 1;
+    } else {
+        const lastDate = new Date(lastActive);
+        const todayDate = new Date(today);
+        const diffDays = Math.floor((todayDate - lastDate) / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 0) {
+            // 同一天，保持不变
+        } else if (diffDays === 1) {
+            // 连续天
+            stats.currentStreak = (stats.currentStreak || 0) + 1;
+        } else {
+            // 中断
+            stats.currentStreak = 1;
+        }
+    }
+    
+    stats.lastActiveDate = today;
+    saveStats(stats);
+    
+    // 检查连续天数成就
+    if (stats.currentStreak >= 3) checkAchievement('streak_3');
+    if (stats.currentStreak >= 7) checkAchievement('streak_7');
+}
+
+// 格式化日期显示
+function formatDateLabel(date) {
+    const today = new Date();
+    const targetDate = new Date(date);
+    today.setHours(0, 0, 0, 0);
+    targetDate.setHours(0, 0, 0, 0);
+    
+    const diffDays = Math.floor((today - targetDate) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return '今天';
+    if (diffDays === 1) return '昨天';
+    if (diffDays === 2) return '前天';
+    if (diffDays < 7) return `${diffDays}天前`;
+    
+    const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    return weekDays[targetDate.getDay()];
+}
+
+function formatFullDate(date) {
+    const d = new Date(date);
+    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
+// 导航日期
+function navigateStatsDate(direction) {
+    // 先将当前日期归一化到午夜
+    const current = new Date(currentStatsDate);
+    current.setHours(12, 0, 0, 0); // 使用中午避免时区问题
+    
+    // 计算新日期
+    const newDate = new Date(current);
+    newDate.setDate(newDate.getDate() + direction);
+    newDate.setHours(12, 0, 0, 0);
+    
+    // 获取今天（也归一化到中午）
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    
+    // 不能超过今天
+    if (newDate > today) return;
+    
+    currentStatsDate = newDate;
+    updateStatsDisplay();
+}
+
+// 计算指定日期的统计数据
+function calculateStatsForDate(date) {
+    const stats = getStats();
+    const sessions = getAllSessions();
+    const dateStr = date.toISOString().split('T')[0];
+    
+    const knowledge = (stats.dailyKnowledge || {})[dateStr] || 0;
+    const messages = (stats.dailyMessages || {})[dateStr] || 0;
+    const topicsStarted = (stats.dailyTopics || {})[dateStr] || 0;
+    
+    let topicsCompleted = 0;
+    Object.values(sessions).forEach(session => {
+        if (session.knowledgeLevel >= 100 && session.updatedAt) {
+            const sessionDate = session.updatedAt.split('T')[0];
+            if (sessionDate === dateStr) {
+                topicsCompleted++;
+            }
+        }
+    });
+    
+    return {
+        knowledge,
+        messages,
+        topicsCompleted,
+        topicsStarted,
+        streak: stats.currentStreak || 0
+    };
+}
+
+// 更新统计显示
+function updateStatsDisplay() {
+    const dateStr = currentStatsDate.toISOString().split('T')[0];
+    
+    // 更新日期导航显示
+    document.getElementById('statsDateLabel').textContent = formatDateLabel(currentStatsDate);
+    document.getElementById('statsDateValue').textContent = formatFullDate(currentStatsDate);
+    
+    // 检查是否可以前进（不能超过今天）
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    document.getElementById('statsNextBtn').disabled = (dateStr >= todayStr);
+    
+    // 计算并显示统计
+    const calculated = calculateStatsForDate(currentStatsDate);
+    
+    document.getElementById('statTopicsCompleted').textContent = calculated.topicsCompleted;
+    document.getElementById('statTotalKnowledge').textContent = calculated.knowledge;
+    document.getElementById('statTotalMessages').textContent = calculated.messages;
+    document.getElementById('statCurrentStreak').textContent = calculated.streak;
+    
+    // 更新折线图
+    renderLineChart();
+}
+
+async function openStats() {
+    // 重置为今天（使用中午时间避免时区问题）
+    currentStatsDate = new Date();
+    currentStatsDate.setHours(12, 0, 0, 0);
+    
+    const stats = getStats();
+    const sessions = getAllSessions();
+    
+    // 更新日期导航
+    document.getElementById('statsDateLabel').textContent = '今天';
+    document.getElementById('statsDateValue').textContent = formatFullDate(currentStatsDate);
+    document.getElementById('statsNextBtn').disabled = true;
+    
+    // 计算今天的统计
+    const calculated = calculateStatsForDate(currentStatsDate);
+    
+    document.getElementById('statTopicsCompleted').textContent = calculated.topicsCompleted;
+    document.getElementById('statTotalKnowledge').textContent = calculated.knowledge;
+    document.getElementById('statTotalMessages').textContent = calculated.messages;
+    document.getElementById('statCurrentStreak').textContent = calculated.streak;
+    
+    // 生成折线图
+    renderLineChart();
+    
+    // 生成学科分布（使用AI分类）
+    await renderSubjectsChartWithAI(sessions);
+    
+    document.getElementById('statsOverlay').style.display = 'flex';
+}
+
+function closeStats() {
+    document.getElementById('statsOverlay').style.display = 'none';
+}
+
+// 渲染折线图
+function renderLineChart() {
+    const stats = getStats();
+    const svg = document.getElementById('lineChart');
+    const labelsContainer = document.getElementById('chartXLabels');
+    
+    // 获取最近7天的数据
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date(currentStatsDate);
+        d.setDate(d.getDate() - i);
+        days.push(d.toISOString().split('T')[0]);
+    }
+    
+    const knowledgeData = days.map(d => (stats.dailyKnowledge || {})[d] || 0);
+    const messagesData = days.map(d => (stats.dailyMessages || {})[d] || 0);
+    
+    const maxKnowledge = Math.max(...knowledgeData, 10);
+    const maxMessages = Math.max(...messagesData, 5);
+    const maxValue = Math.max(maxKnowledge, maxMessages, 1);
+    
+    const width = 500;
+    const height = 180;
+    const padding = { top: 20, right: 20, bottom: 10, left: 35 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+    
+    // 计算点的位置
+    const getX = (i) => padding.left + (i / (days.length - 1)) * chartWidth;
+    const getY = (value) => padding.top + chartHeight - (value / maxValue) * chartHeight;
+    
+    // 生成路径
+    const createPath = (data) => {
+        if (data.every(v => v === 0)) return '';
+        return data.map((v, i) => {
+            const x = getX(i);
+            const y = getY(v);
+            return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+        }).join(' ');
+    };
+    
+    // 生成填充区域路径
+    const createAreaPath = (data) => {
+        if (data.every(v => v === 0)) return '';
+        const linePath = createPath(data);
+        const lastX = getX(data.length - 1);
+        const firstX = getX(0);
+        const bottomY = padding.top + chartHeight;
+        return `${linePath} L ${lastX} ${bottomY} L ${firstX} ${bottomY} Z`;
+    };
+    
+    // 生成网格线
+    const gridLines = [];
+    for (let i = 0; i <= 4; i++) {
+        const y = padding.top + (i / 4) * chartHeight;
+        const value = Math.round(maxValue * (1 - i / 4));
+        gridLines.push(`<line class="grid-line" x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}"/>`);
+        if (i < 4) {
+            gridLines.push(`<text class="y-label" x="${padding.left - 5}" y="${y + 4}" text-anchor="end">${value}</text>`);
+        }
+    }
+    
+    // 高亮当前选中的日期（最后一天）
+    const highlightIndex = days.length - 1;
+    const highlightX = getX(highlightIndex);
+    
+    svg.innerHTML = `
+        <defs>
+            <linearGradient id="knowledgeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#667eea"/>
+                <stop offset="100%" style="stop-color:#764ba2"/>
+            </linearGradient>
+            <linearGradient id="messagesGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#00b894"/>
+                <stop offset="100%" style="stop-color:#00cec9"/>
+            </linearGradient>
+            <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/>
+            </filter>
+        </defs>
+        
+        <!-- 网格线 -->
+        ${gridLines.join('')}
+        
+        <!-- 高亮当前日期 -->
+        <rect x="${highlightX - 20}" y="${padding.top}" width="40" height="${chartHeight}" 
+              fill="rgba(102, 126, 234, 0.1)" rx="5"/>
+        
+        <!-- 知识点填充区域 -->
+        <path class="data-area knowledge" d="${createAreaPath(knowledgeData)}"/>
+        
+        <!-- 消息数填充区域 -->
+        <path class="data-area messages" d="${createAreaPath(messagesData)}"/>
+        
+        <!-- 知识点折线 -->
+        <path class="data-line knowledge" d="${createPath(knowledgeData)}" filter="url(#shadow)"/>
+        
+        <!-- 消息数折线 -->
+        <path class="data-line messages" d="${createPath(messagesData)}" filter="url(#shadow)"/>
+        
+        <!-- 知识点数据点 -->
+        ${knowledgeData.map((v, i) => `
+            <circle class="data-point knowledge" cx="${getX(i)}" cy="${getY(v)}" r="${i === highlightIndex ? 6 : 4}">
+                <title>${days[i]}: 知识+${v}</title>
+            </circle>
+        `).join('')}
+        
+        <!-- 消息数数据点 -->
+        ${messagesData.map((v, i) => `
+            <circle class="data-point messages" cx="${getX(i)}" cy="${getY(v)}" r="${i === highlightIndex ? 6 : 4}">
+                <title>${days[i]}: ${v}条消息</title>
+            </circle>
+        `).join('')}
+    `;
+    
+    // 更新X轴标签
+    labelsContainer.innerHTML = days.map((d, i) => {
+        const date = new Date(d);
+        const label = i === highlightIndex ? formatDateLabel(date) : `${date.getMonth() + 1}/${date.getDate()}`;
+        const isHighlight = i === highlightIndex;
+        return `<span style="${isHighlight ? 'color: var(--primary-color); font-weight: 600;' : ''}">${label}</span>`;
+    }).join('');
+}
+
+// 使用AI分类知识点学科
+async function classifyTopicsWithAI(topics) {
+    const stats = getStats();
+    const cached = stats.subjectClassifications || {};
+    
+    // 找出需要分类的新话题
+    const newTopics = topics.filter(t => !cached[t]);
+    
+    if (newTopics.length === 0) {
+        return cached;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/classify-topics`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ topics: newTopics })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.results) {
+            data.results.forEach(result => {
+                cached[result.topic] = result.subject_id;
+            });
+            
+            // 保存分类结果
+            stats.subjectClassifications = cached;
+            saveStats(stats);
+        }
+    } catch (error) {
+        console.error('Topic classification error:', error);
+    }
+    
+    return cached;
+}
+
+async function renderSubjectsChartWithAI(sessions) {
+    const container = document.getElementById('subjectsChart');
+    const loading = document.getElementById('subjectsLoading');
+    
+    const topics = Object.values(sessions)
+        .filter(s => s.topic)
+        .map(s => s.topic);
+    
+    if (topics.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">暂无数据</p>';
+        return;
+    }
+    
+    // 显示加载
+    loading.style.display = 'block';
+    container.innerHTML = '';
+    
+    // 获取AI分类
+    const classifications = await classifyTopicsWithAI(topics);
+    
+    // 按学科统计
+    const subjectCounts = {};
+    topics.forEach(topic => {
+        const subjectId = classifications[topic] || 'other';
+        subjectCounts[subjectId] = (subjectCounts[subjectId] || 0) + 1;
+    });
+    
+    loading.style.display = 'none';
+    
+    const sorted = Object.entries(subjectCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6);
+    
+    if (sorted.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">暂无数据</p>';
+        return;
+    }
+    
+    const maxCount = Math.max(...sorted.map(s => s[1]), 1);
+    
+    container.innerHTML = sorted.map(([subjectId, count]) => {
+        const width = (count / maxCount) * 100;
+        const subjectName = SUBJECT_NAMES[subjectId] || subjectId;
+        return `
+            <div class="subject-bar">
+                <span class="label">${subjectName}</span>
+                <div class="bar-container">
+                    <div class="bar-fill" style="width: ${width}%"></div>
+                </div>
+                <span class="count">${count}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+// 显示统计详情
+function showStatDetail(type) {
+    const stats = getStats();
+    const sessions = getAllSessions();
+    const overlay = document.getElementById('statDetailOverlay');
+    const title = document.getElementById('statDetailTitle');
+    const summary = document.getElementById('statDetailSummary');
+    const list = document.getElementById('statDetailList');
+    
+    const calculated = calculateStatsForDate(currentStatsDate);
+    const dateName = formatDateLabel(currentStatsDate);
+    
+    let html = '';
+    
+    switch (type) {
+        case 'topics':
+            title.textContent = '📚 话题详情';
+            summary.innerHTML = `
+                <div class="big-number">${calculated.topicsCompleted}</div>
+                <div class="summary-label">${dateName}完成话题</div>
+                <div class="summary-sub">共学习 ${calculated.topicsStarted || Object.keys(sessions).length} 个话题</div>
+            `;
+            
+            // 列出所有话题
+            const sortedSessions = Object.entries(sessions)
+                .sort((a, b) => new Date(b[1].updatedAt) - new Date(a[1].updatedAt));
+            
+            html = '<div class="detail-section-title">话题列表</div>';
+            html += sortedSessions.map(([id, session]) => {
+                const progress = session.knowledgeLevel || 0;
+                const icon = progress >= 100 ? '✅' : progress >= 50 ? '📖' : '📚';
+                const date = session.updatedAt ? new Date(session.updatedAt).toLocaleDateString('zh-CN') : '';
+                return `
+                    <div class="detail-item">
+                        <div class="detail-icon">${icon}</div>
+                        <div class="detail-info">
+                            <div class="detail-title">${session.topic || '新话题'}</div>
+                            <div class="detail-sub">${date}</div>
+                        </div>
+                        <div class="detail-value">${progress}%</div>
+                    </div>
+                `;
+            }).join('');
+            break;
+            
+        case 'knowledge':
+            title.textContent = '💡 知识点详情';
+            summary.innerHTML = `
+                <div class="big-number">${calculated.knowledge}</div>
+                <div class="summary-label">${dateName}累计知识点</div>
+                <div class="summary-sub">平均每次获得 ${calculated.messages > 0 ? Math.round(calculated.knowledge / calculated.messages) : 0} 分</div>
+            `;
+            
+            // 按日期显示知识增长
+            const dailyKnowledge = stats.dailyKnowledge || {};
+            const knowledgeDays = Object.entries(dailyKnowledge)
+                .sort((a, b) => b[0].localeCompare(a[0]))
+                .slice(0, 30);
+            
+            html = '<div class="detail-section-title">每日知识增长</div>';
+            if (knowledgeDays.length === 0) {
+                html += '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">暂无数据</p>';
+            } else {
+                html += knowledgeDays.map(([date, value]) => {
+                    const d = new Date(date);
+                    const dateStr = `${d.getMonth() + 1}月${d.getDate()}日`;
+                    const weekDay = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d.getDay()];
+                    return `
+                        <div class="detail-item">
+                            <div class="detail-icon">📅</div>
+                            <div class="detail-info">
+                                <div class="detail-title">${dateStr}</div>
+                                <div class="detail-sub">${weekDay}</div>
+                            </div>
+                            <div class="detail-value">+${value}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            break;
+            
+        case 'messages':
+            title.textContent = '💬 消息详情';
+            summary.innerHTML = `
+                <div class="big-number">${calculated.messages}</div>
+                <div class="summary-label">${dateName}教学消息</div>
+                <div class="summary-sub">共完成 ${calculated.topicsCompleted} 个话题</div>
+            `;
+            
+            // 按日期显示消息数
+            const dailyMessages = stats.dailyMessages || {};
+            const messageDays = Object.entries(dailyMessages)
+                .sort((a, b) => b[0].localeCompare(a[0]))
+                .slice(0, 30);
+            
+            html = '<div class="detail-section-title">每日消息数</div>';
+            if (messageDays.length === 0) {
+                html += '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">暂无数据</p>';
+            } else {
+                html += messageDays.map(([date, value]) => {
+                    const d = new Date(date);
+                    const dateStr = `${d.getMonth() + 1}月${d.getDate()}日`;
+                    const weekDay = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d.getDay()];
+                    return `
+                        <div class="detail-item">
+                            <div class="detail-icon">💬</div>
+                            <div class="detail-info">
+                                <div class="detail-title">${dateStr}</div>
+                                <div class="detail-sub">${weekDay}</div>
+                            </div>
+                            <div class="detail-value">${value}条</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            break;
+            
+        case 'streak':
+            title.textContent = '🔥 连续学习';
+            const maxStreak = Math.max(stats.currentStreak || 0, stats.maxStreak || 0);
+            summary.innerHTML = `
+                <div class="big-number">${stats.currentStreak || 0}</div>
+                <div class="summary-label">当前连续天数</div>
+                <div class="summary-sub">最长连续 ${maxStreak} 天</div>
+            `;
+            
+            // 显示最近活跃日期
+            const recentDates = Object.keys(stats.dailyKnowledge || {})
+                .sort((a, b) => b.localeCompare(a))
+                .slice(0, 14);
+            
+            html = '<div class="detail-section-title">最近学习记录</div>';
+            if (recentDates.length === 0) {
+                html += '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">暂无学习记录</p>';
+            } else {
+                html += recentDates.map(date => {
+                    const d = new Date(date);
+                    const dateStr = `${d.getMonth() + 1}月${d.getDate()}日`;
+                    const weekDay = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d.getDay()];
+                    const knowledge = (stats.dailyKnowledge || {})[date] || 0;
+                    const messages = (stats.dailyMessages || {})[date] || 0;
+                    return `
+                        <div class="detail-item">
+                            <div class="detail-icon">✅</div>
+                            <div class="detail-info">
+                                <div class="detail-title">${dateStr} ${weekDay}</div>
+                                <div class="detail-sub">知识+${knowledge} · ${messages}条消息</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            break;
+    }
+    
+    list.innerHTML = html;
+    overlay.style.display = 'flex';
+}
+
+function closeStatDetail() {
+    document.getElementById('statDetailOverlay').style.display = 'none';
+}

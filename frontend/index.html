@@ -18,6 +18,10 @@
             <div class="session-list" id="sessionList">
                 <!-- 会话列表会在这里动态添加 -->
             </div>
+            <div class="sidebar-footer">
+                <button class="sidebar-btn" onclick="openStats()">📊 统计</button>
+                <button class="sidebar-btn" onclick="openAchievements()">🏆 成就</button>
+            </div>
         </aside>
 
         <!-- 主内容区 -->
@@ -152,6 +156,41 @@
                     <input type="text" id="catNameInput" placeholder="给你的猫咪起个名字" maxlength="10">
                 </div>
                 <p class="setting-hint">猫咪会用这个名字自称哦～</p>
+                
+                <div class="setting-item">
+                    <label for="gradeSelect">我的年级</label>
+                    <select id="gradeSelect">
+                        <option value="default">百科全书模式</option>
+                        <option value="primary_1_3">小学1-3年级</option>
+                        <option value="primary_4_6">小学4-6年级</option>
+                        <option value="middle_school">初中</option>
+                        <option value="high_school">高中</option>
+                        <option value="university">大学及以上</option>
+                    </select>
+                </div>
+                <p class="setting-hint">根据年级调整AI的回答风格</p>
+                
+                <div class="setting-item">
+                    <label for="subjectSelect">常学学科</label>
+                    <select id="subjectSelect">
+                        <option value="all">百科全书（所有学科）</option>
+                        <option value="math">数学</option>
+                        <option value="physics">物理</option>
+                        <option value="chemistry">化学</option>
+                        <option value="biology">生物</option>
+                        <option value="history">历史</option>
+                        <option value="geography">地理</option>
+                        <option value="chinese">语文</option>
+                        <option value="english">英语</option>
+                        <option value="programming">编程/计算机</option>
+                        <option value="art">艺术</option>
+                        <option value="music">音乐</option>
+                        <option value="philosophy">哲学</option>
+                        <option value="economics">经济学</option>
+                        <option value="psychology">心理学</option>
+                    </select>
+                </div>
+                <p class="setting-hint">选择你主要学习的学科领域</p>
             </div>
             <div class="settings-actions">
                 <button class="settings-cancel" onclick="closeSettings()">取消</button>
@@ -169,8 +208,144 @@
             <div class="welcome-form">
                 <label>给你的猫咪起个名字吧：</label>
                 <input type="text" id="welcomeCatName" placeholder="例如：奶茶、煤球、小橘..." maxlength="10">
+                
+                <label style="margin-top: 15px;">你是哪个年级的呢？</label>
+                <select id="welcomeGrade">
+                    <option value="default">跳过（百科全书模式）</option>
+                    <option value="primary_1_3">小学1-3年级</option>
+                    <option value="primary_4_6">小学4-6年级</option>
+                    <option value="middle_school">初中</option>
+                    <option value="high_school">高中</option>
+                    <option value="university">大学及以上</option>
+                </select>
+                
+                <label style="margin-top: 15px;">你主要想学什么呢？</label>
+                <select id="welcomeSubject">
+                    <option value="all">百科全书（所有学科）</option>
+                    <option value="math">数学</option>
+                    <option value="physics">物理</option>
+                    <option value="chemistry">化学</option>
+                    <option value="biology">生物</option>
+                    <option value="history">历史</option>
+                    <option value="programming">编程/计算机</option>
+                </select>
             </div>
             <button class="welcome-btn" onclick="completeWelcome()">开始使用 🚀</button>
+        </div>
+    </div>
+
+    <!-- 成就弹窗 -->
+    <div class="achievements-overlay" id="achievementsOverlay" style="display: none;">
+        <div class="achievements-content">
+            <div class="achievements-header">
+                <h2>🏆 我的成就</h2>
+                <button class="close-btn" onclick="closeAchievements()">✕</button>
+            </div>
+            <div class="achievements-summary" id="achievementsSummary">
+                <span class="unlocked-count">已解锁: <b id="unlockedCount">0</b></span>
+                <span class="total-count">/ <span id="totalCount">0</span></span>
+            </div>
+            <div class="achievements-list" id="achievementsList">
+                <!-- 成就列表动态生成 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 统计弹窗 -->
+    <div class="stats-overlay" id="statsOverlay" style="display: none;">
+        <div class="stats-content">
+            <div class="stats-header">
+                <h2>📊 学习统计</h2>
+                <button class="close-btn" onclick="closeStats()">✕</button>
+            </div>
+            
+            <!-- 日期导航（类似苹果屏幕使用时间） -->
+            <div class="stats-date-nav">
+                <button class="date-nav-btn" onclick="navigateStatsDate(-1)">‹</button>
+                <div class="date-nav-display">
+                    <span class="date-nav-label" id="statsDateLabel">今天</span>
+                    <span class="date-nav-date" id="statsDateValue"></span>
+                </div>
+                <button class="date-nav-btn" onclick="navigateStatsDate(1)" id="statsNextBtn">›</button>
+            </div>
+            
+            <div class="stats-cards">
+                <div class="stat-card clickable" onclick="showStatDetail('topics')">
+                    <div class="stat-icon">📚</div>
+                    <div class="stat-value" id="statTopicsCompleted">0</div>
+                    <div class="stat-label">完成话题</div>
+                    <div class="stat-arrow">›</div>
+                </div>
+                <div class="stat-card clickable" onclick="showStatDetail('knowledge')">
+                    <div class="stat-icon">💡</div>
+                    <div class="stat-value" id="statTotalKnowledge">0</div>
+                    <div class="stat-label">累计知识点</div>
+                    <div class="stat-arrow">›</div>
+                </div>
+                <div class="stat-card clickable" onclick="showStatDetail('messages')">
+                    <div class="stat-icon">💬</div>
+                    <div class="stat-value" id="statTotalMessages">0</div>
+                    <div class="stat-label">教学消息</div>
+                    <div class="stat-arrow">›</div>
+                </div>
+                <div class="stat-card clickable" onclick="showStatDetail('streak')">
+                    <div class="stat-icon">🔥</div>
+                    <div class="stat-value" id="statCurrentStreak">0</div>
+                    <div class="stat-label">连续天数</div>
+                    <div class="stat-arrow">›</div>
+                </div>
+            </div>
+            
+            <div class="stats-chart-section">
+                <div class="chart-header">
+                    <h3>📈 知识增长趋势</h3>
+                    <div class="chart-legend">
+                        <span class="legend-item"><span class="legend-dot knowledge"></span>知识点</span>
+                        <span class="legend-item"><span class="legend-dot messages"></span>消息数</span>
+                    </div>
+                </div>
+                <div class="line-chart-container" id="lineChartContainer">
+                    <svg class="line-chart" id="lineChart" viewBox="0 0 500 200"></svg>
+                    <div class="chart-x-labels" id="chartXLabels"></div>
+                </div>
+            </div>
+            
+            <div class="stats-subjects-section">
+                <h3>🎯 学科分布</h3>
+                <div class="subjects-loading" id="subjectsLoading" style="display: none;">
+                    <span>🔄 AI正在分析学科分布...</span>
+                </div>
+                <div class="subjects-chart" id="subjectsChart">
+                    <!-- 学科分布动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 统计详情弹窗 -->
+    <div class="stat-detail-overlay" id="statDetailOverlay" style="display: none;">
+        <div class="stat-detail-content">
+            <div class="stat-detail-header">
+                <button class="back-btn" onclick="closeStatDetail()">‹ 返回</button>
+                <h3 id="statDetailTitle">详情</h3>
+            </div>
+            <div class="stat-detail-summary" id="statDetailSummary">
+                <!-- 摘要信息 -->
+            </div>
+            <div class="stat-detail-list" id="statDetailList">
+                <!-- 详情列表 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 成就解锁通知 -->
+    <div class="achievement-notification" id="achievementNotification" style="display: none;">
+        <div class="achievement-notification-content">
+            <div class="achievement-icon" id="achievementNotificationIcon">🏆</div>
+            <div class="achievement-info">
+                <div class="achievement-title">成就解锁！</div>
+                <div class="achievement-name" id="achievementNotificationName"></div>
+            </div>
         </div>
     </div>
 
