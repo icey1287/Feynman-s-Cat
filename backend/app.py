@@ -180,7 +180,7 @@ def get_cat_state(knowledge_level, cat_name="小费曼"):
             "state": "confused",
             "emoji": "😵‍💫",
             "description": "一头雾水",
-            "message": f"喵呜？{cat_name}完全听不懂啊...",
+            "message": f"{cat_name}完全不懂啊...",
             "catchphrase": "喵呜？"
         }
     elif knowledge_level < 100:
@@ -188,7 +188,7 @@ def get_cat_state(knowledge_level, cat_name="小费曼"):
             "state": "learning", 
             "emoji": "🤔",
             "description": "一知半解",
-            "message": f"咪嗷～{cat_name}好像有点明白了，但还是有些地方不太懂...",
+            "message": f"{cat_name}好像有点明白了，但还是有些地方不太懂...",
             "catchphrase": "咪嗷～"
         }
     else:
@@ -196,7 +196,7 @@ def get_cat_state(knowledge_level, cat_name="小费曼"):
             "state": "mastered",
             "emoji": "😸",
             "description": "完全掌握",
-            "message": f"喵哈！{cat_name}完全懂了！谢谢你教会我！",
+            "message": f"{cat_name}完全懂了！谢谢你教会我！",
             "catchphrase": "喵哈！"
         }
 

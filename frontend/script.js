@@ -987,8 +987,12 @@ async function sendMessage() {
             // 添加AI消息
             addMessage('ai', responseText, data.knowledge_gain);
             
-            // 显示提示
-            if (hint) {
+            // 处理提示：当得分>5或无hint时隐藏；得分<=5且有hint才显示
+            try {
+                const hintBoxEl = document.getElementById('hintBox');
+                if (hintBoxEl) hintBoxEl.style.display = 'none';
+            } catch (e) {}
+            if (hint &&  data.knowledge_gain <= 5) {
                 showHint(hint);
             }
             
