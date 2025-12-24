@@ -7,6 +7,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import os
 import json
+import requests
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -101,6 +102,8 @@ SUBJECT_CONFIGS = {
     "economics": "经济学",
     "psychology": "心理学"
 }
+
+DEFAULT_ASR_URL = os.getenv('ASR_URL', 'http://speech-internal.tal.com/v1/asr')
 
 def get_client():
     """获取OpenAI客户端"""
@@ -518,6 +521,50 @@ def check_config():
         "base_url": base_url or "https://api.openai.com/v1",
         "model": model or "gpt-4o-mini"
     })
+
+
+@app.route('/api/asr', methods=['POST'])
+def asr_proxy():
+    """将前端录音转发到语音识别服务"""
+    data = request.json or {}
+    audio_data = data.get('audio_data')
+    audio_format = data.get('format', 'pcm')
+    sample_rate = data.get('sample_rate', 8000)
+    asr_url = os.getenv('ASR_URL', DEFAULT_ASR_URL)
+    asr_token = os.getenv('ASR_TOKEN') or os.getenv('ASR_BEARER')
+    timeout = float(os.getenv('ASR_TIMEOUT', '20'))
+    
+    if not audio_data:
+        return jsonify({"success": False, "error": "缺少音频数据"}), 400
+    
+    if not asr_token:
+        return jsonify({"success": False, "error": "未配置ASR_TOKEN"}), 500
+    
+    payload = {
+        "audio_data": audio_data,
+        "format": audio_format,
+        "sample_rate": sample_rate
+    }
+    headers = {
+        "Authorization": f"Bearer {asr_token}",
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        resp = requests.post(asr_url, json=payload, headers=headers, timeout=timeout)
+        resp.raise_for_status()
+        result = resp.json()
+        text = result.get('text') or result.get('result') or result.get('data', {}).get('text')
+        return jsonify({
+            "success": True,
+            "text": text,
+            "raw": result
+        })
+    except requests.RequestException as e:
+        status_code = e.response.status_code if getattr(e, 'response', None) else 502
+        return jsonify({"success": False, "error": f"ASR服务错误: {str(e)}"}), status_code
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/profile/options', methods=['GET'])
 def get_profile_options():

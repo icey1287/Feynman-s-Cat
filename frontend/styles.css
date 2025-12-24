@@ -661,6 +661,33 @@ body {
     border-color: var(--primary-color);
 }
 
+.mic-btn {
+    background: #f1f2f6;
+    color: var(--text-primary);
+    border: 2px solid #e9ecef;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    align-self: flex-end;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mic-btn.recording {
+    background: #ffeaa7;
+    border-color: #f6b93b;
+    color: #c87f0a;
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+.mic-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
 .send-btn {
     background: var(--primary-color);
     color: white;

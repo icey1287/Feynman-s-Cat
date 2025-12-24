@@ -38,17 +38,13 @@ AI宠物有一个知识条（0-100），根据数值对应三种状态：
 # OpenAI API密钥
 API_KEY=your-api-key-here
 
-# API基础URL (支持OpenAI兼容的API)
-BASE_URL=https://api.openai.com/v1
+# API基础URL (支持OpenAI兼容的API,以豆包为例)
+BASE_URL=https://ark.cn-beijing.volces.com/api/v3
 
-# 模型名称
-MODEL=gpt-4o-mini
+# 模型名称（以豆包为例）
+MODEL=doubao-seed-1-6-flash-250828
 ```
 
-支持的API服务：
-- OpenAI官方API
-- 豆包API (BASE_URL=https://ark.cn-beijing.volces.com/api/v3)
-- 其他OpenAI兼容API
 
 ### 2. 安装依赖
 
@@ -64,7 +60,7 @@ python backend/app.py
 
 ### 4. 访问应用
 
-打开浏览器访问：http://localhost:5000
+打开浏览器访问：http://localhost:5001
 
 ## 📁 项目结构
 

@@ -5,6 +5,14 @@ let currentSessionId = null;
 let isLoading = false;
 let loadingTipsInterval = null;
 let catName = '小费曼';
+let isRecording = false;
+let mediaStream = null;
+let audioContext = null;
+let audioProcessor = null;
+let audioSource = null;
+let audioChunks = [];
+let recordingSampleRate = 0;
+const ASR_SAMPLE_RATE = 8000;
 
 // 本地存储key
 const STORAGE_KEYS = {
@@ -714,6 +722,206 @@ async function startLearning() {
     setLoadingState(false);
 }
 
+// ==================== 语音输入 ====================
+
+async function toggleRecording() {
+    if (isRecording) {
+        await stopRecordingAndSend();
+        return;
+    }
+    if (isLoading) return;
+    
+    try {
+        await startRecording();
+    } catch (error) {
+        console.error('Record start error:', error);
+        isRecording = false;
+        addMessage('ai', '麦克风不可用，请检查权限后再试');
+        updateMicButton();
+    }
+}
+
+async function startRecording() {
+    // 检查环境：file:// 协议不支持
+    if (window.location.protocol === 'file:') {
+        addMessage('ai', '本地文件模式(file://)无法使用麦克风，请通过服务器访问(如 http://localhost:5000)');
+        return;
+    }
+
+    // 检查 API 支持情况
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        // 检查是否因为非安全上下文导致 API 被禁用
+        if (window.location.protocol === 'http:' && 
+            !['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+            addMessage('ai', '浏览器安全限制：语音功能仅支持 HTTPS 或 localhost 访问');
+        } else {
+            addMessage('ai', '当前浏览器不支持标准麦克风 API，请尝试升级浏览器');
+        }
+        return;
+    }
+    
+    try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+        console.error('麦克风权限获取失败:', err);
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            addMessage('ai', '麦克风权限被拒绝，请点击地址栏左侧图标允许权限');
+        } else if (err.name === 'NotFoundError') {
+            addMessage('ai', '未找到麦克风设备');
+        } else {
+            addMessage('ai', `无法访问麦克风: ${err.message}`);
+        }
+        return;
+    }
+
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    recordingSampleRate = audioContext.sampleRate;
+    audioSource = audioContext.createMediaStreamSource(mediaStream);
+    audioProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+    audioChunks = [];
+    
+    audioProcessor.onaudioprocess = (event) => {
+        const channelData = event.inputBuffer.getChannelData(0);
+        audioChunks.push(new Float32Array(channelData));
+    };
+    
+    audioSource.connect(audioProcessor);
+    audioProcessor.connect(audioContext.destination);
+    isRecording = true;
+    updateMicButton();
+}
+
+async function stopRecordingAndSend() {
+    isRecording = false;
+    updateMicButton();
+    
+    try {
+        if (audioProcessor) audioProcessor.disconnect();
+        if (audioSource) audioSource.disconnect();
+        if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+        if (audioContext) await audioContext.close();
+    } catch (error) {
+        console.warn('Record stop error:', error);
+    }
+    mediaStream = null;
+    audioContext = null;
+    audioProcessor = null;
+    audioSource = null;
+    
+    const merged = mergeFloat32Arrays(audioChunks);
+    if (!merged || merged.length === 0) {
+        addMessage('ai', '没有采集到有效音频，请再试一次');
+        return;
+    }
+    
+    try {
+        const downsampled = downsampleBuffer(merged, recordingSampleRate || 48000, ASR_SAMPLE_RATE);
+        const pcm16 = floatTo16BitPCM(downsampled);
+        const base64audio = arrayBufferToBase64(pcm16.buffer);
+        await sendAudioToAsr(base64audio);
+    } catch (error) {
+        console.error('ASR prep error:', error);
+        addMessage('ai', '处理录音时出错，请再试一次');
+    }
+}
+
+function mergeFloat32Arrays(chunks) {
+    if (!chunks || chunks.length === 0) return null;
+    const totalLength = chunks.reduce((sum, arr) => sum + arr.length, 0);
+    const result = new Float32Array(totalLength);
+    let offset = 0;
+    chunks.forEach(arr => {
+        result.set(arr, offset);
+        offset += arr.length;
+    });
+    return result;
+}
+
+function downsampleBuffer(buffer, sampleRate, outSampleRate) {
+    if (!buffer || buffer.length === 0) return new Float32Array(0);
+    if (outSampleRate === sampleRate) return buffer;
+    const ratio = sampleRate / outSampleRate;
+    if (ratio < 1) {
+        throw new Error('输出采样率必须低于输入采样率');
+    }
+    const newLength = Math.round(buffer.length / ratio);
+    const result = new Float32Array(newLength);
+    for (let i = 0; i < newLength; i++) {
+        result[i] = buffer[Math.floor(i * ratio)];
+    }
+    return result;
+}
+
+function floatTo16BitPCM(floatBuffer) {
+    const output = new Int16Array(floatBuffer.length);
+    for (let i = 0; i < floatBuffer.length; i++) {
+        let s = Math.max(-1, Math.min(1, floatBuffer[i]));
+        output[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    }
+    return output;
+}
+
+function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, chunk);
+    }
+    return btoa(binary);
+}
+
+async function sendAudioToAsr(base64Audio) {
+    setLoadingState(true);
+    updateMicButton();
+    try {
+        const response = await fetch(`${API_BASE}/api/asr`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                audio_data: base64Audio,
+                format: 'pcm',
+                sample_rate: ASR_SAMPLE_RATE
+            })
+        });
+        const data = await response.json();
+        if (data.success) {
+            const text = data.text || (data.raw && (data.raw.text || data.raw.result || (data.raw.data && data.raw.data.text))) || '';
+            if (text) {
+                const messageInput = document.getElementById('messageInput');
+                messageInput.value = text;
+                setLoadingState(false);
+                await sendMessage();
+                return;
+            } else {
+                addMessage('ai', '没有识别到语音，请再试一次');
+            }
+        } else {
+            addMessage('ai', data.error || '语音识别失败');
+        }
+    } catch (error) {
+        console.error('ASR error:', error);
+        addMessage('ai', '语音识别出错，请稍后再试');
+    }
+    setLoadingState(false);
+    updateMicButton();
+}
+
+function updateMicButton() {
+    const micBtn = document.getElementById('micBtn');
+    if (!micBtn) return;
+    if (isRecording) {
+        micBtn.textContent = '⏹️ 停止';
+        micBtn.classList.add('recording');
+        micBtn.disabled = false;
+    } else {
+        micBtn.textContent = '🎙️ 语音';
+        micBtn.classList.remove('recording');
+        micBtn.disabled = isLoading;
+    }
+}
+
 // 发送消息
 async function sendMessage() {
     const messageInput = document.getElementById('messageInput');
@@ -986,6 +1194,7 @@ function setLoadingState(loading) {
         sendBtn.disabled = loading;
         sendBtn.textContent = loading ? '发送中...' : '发送 📨';
     }
+    updateMicButton();
 }
 
 // 页面加载完成后初始化
@@ -1036,6 +1245,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 更新连续天数
     updateStreak();
+    
+    // 初始化麦克风按钮状态
+    updateMicButton();
     
     // 添加CSS动画
     const style = document.createElement('style');

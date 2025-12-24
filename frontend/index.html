@@ -102,6 +102,7 @@
                     <div class="chat-input-container">
                         <textarea id="messageInput" placeholder="用你自己的话解释给猫咪听..." 
                                   onkeypress="handleMessageKeyPress(event)" rows="3"></textarea>
+                        <button class="mic-btn" id="micBtn" onclick="toggleRecording()" title="点击开始语音输入">🎙️ 语音</button>
                         <button class="send-btn" onclick="sendMessage()" id="sendBtn">
                             发送 📨
                         </button>
